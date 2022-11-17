@@ -554,7 +554,7 @@
 
         <span class="k">return</span> <span class="n">compDescripts</span></div>
 
-<div class="viewcode-block" id="pyTACS.getNodesForCompIDs"><a class="viewcode-back" href="../../pytacs/pytacs_module.html#tacs.pytacs.pyTACS.getNodesForCompIDs">[docs]</a>    <span class="k">def</span> <span class="nf">getNodesForCompIDs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">compIDs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="pyTACS.getNodesForCompIDs"><a class="viewcode-back" href="../../pytacs/pytacs_module.html#tacs.pytacs.pyTACS.getNodesForCompIDs">[docs]</a>    <span class="k">def</span> <span class="nf">getNodesForCompIDs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">compIDs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">returnLocal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return a list of the unique nodeIDs belonging to a given list of compIDs</span>
 
@@ -563,6 +563,10 @@
 <span class="sd">        compIDs : int or list[int] or None</span>
 <span class="sd">            List of integers of the compIDs numbers. If None, returns nodeIDs for all components.</span>
 <span class="sd">            Defaults to None.</span>
+
+<span class="sd">        returnLocal : bool</span>
+<span class="sd">            Flag to either return the global (non-partitioned) nodeIDs or determine the local nodeIDs on this processor.</span>
+<span class="sd">            Defaults to False.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -579,15 +583,23 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">compIDs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_flatten</span><span class="p">(</span><span class="n">compIDs</span><span class="p">)</span>
 
+        <span class="c1"># Get local element IDs on this processor that are in the component(s)</span>
         <span class="n">nodes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="n">elemIDs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meshLoader</span><span class="o">.</span><span class="n">getGlobalElementIDsForComps</span><span class="p">(</span>
-            <span class="n">compIDs</span><span class="p">,</span> <span class="n">nastranOrdering</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
+        <span class="n">elemIDs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meshLoader</span><span class="o">.</span><span class="n">getLocalElementIDsForComps</span><span class="p">(</span><span class="n">compIDs</span><span class="p">)</span>
 
-        <span class="n">nElems</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assembler</span><span class="o">.</span><span class="n">getNumElements</span><span class="p">()</span>
+        <span class="c1"># Add nodeIDs (global) from this processor&#39;s elements to the set</span>
+        <span class="c1"># Sets does not allow duplicate entries, so no nodeIDs are repeated</span>
         <span class="k">for</span> <span class="n">eID</span> <span class="ow">in</span> <span class="n">elemIDs</span><span class="p">:</span>
-            <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">eID</span> <span class="o">&lt;</span> <span class="n">nElems</span><span class="p">:</span>
-                <span class="n">nodes</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">assembler</span><span class="o">.</span><span class="n">getElementNodes</span><span class="p">(</span><span class="n">eID</span><span class="p">))</span>
+            <span class="n">nodes</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">assembler</span><span class="o">.</span><span class="n">getElementNodes</span><span class="p">(</span><span class="n">eID</span><span class="p">))</span>
+
+        <span class="c1"># convert global nodeIDs to local numbering on this processor if requested</span>
+        <span class="k">if</span> <span class="n">returnLocal</span><span class="p">:</span>
+            <span class="c1"># nodes = self.meshLoader.getLocalNodeIDsFromGlobal(list(nodes)) # does not work?</span>
+            <span class="n">ownerRange</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assembler</span><span class="o">.</span><span class="n">getOwnerRange</span><span class="p">()</span>
+            <span class="n">allNodesOnProc</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="nb">range</span><span class="p">(</span><span class="n">ownerRange</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="p">],</span> <span class="n">ownerRange</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="p">)</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">allNodesOnProc</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span></div>
 
