@@ -5,11 +5,13 @@ pyBase_problem
 # =============================================================================
 # Imports
 # =============================================================================
+from collections import OrderedDict
+
 import numpy as np
 from mpi4py import MPI
-from ..utilities import BaseUI
-from collections import OrderedDict
+
 import tacs.TACS
+from ..utilities import BaseUI
 
 
 class TACSProblem(BaseUI):
@@ -17,8 +19,9 @@ class TACSProblem(BaseUI):
     Base class for TACS problem types. Contains methods common to all TACS problems.
     """
 
-    def __init__(self, assembler, comm, outputViewer=None, meshLoader=None):
-
+    def __init__(
+        self, assembler, comm=None, options=None, outputViewer=None, meshLoader=None
+    ):
         # TACS assembler object
         self.assembler = assembler
         # TACS F5 output writer
@@ -28,8 +31,6 @@ class TACSProblem(BaseUI):
         # pyNastran BDF object
         if self.meshLoader:
             self.bdfInfo = self.meshLoader.getBDFInfo()
-        # MPI communicator object
-        self.comm = comm
 
         # Create Design variable vector
         self.x = self.assembler.createDesignVec()
@@ -42,8 +43,8 @@ class TACSProblem(BaseUI):
         # List of functions
         self.functionList = OrderedDict()
 
-        # Empty options dict, should be filled out by child class
-        self.options = {}
+        # Setup comm and options
+        BaseUI.__init__(self, options=options, comm=comm)
 
         return
 
@@ -137,7 +138,7 @@ class TACSProblem(BaseUI):
 
     def getNodes(self):
         """
-        Return the mesh coordiantes of this problem.
+        Return the mesh coordinates of this problem.
 
         Returns
         -------
@@ -316,7 +317,7 @@ class TACSProblem(BaseUI):
     ####### Load adding methods ########
 
     def _addLoadToComponents(self, FVec, compIDs, F, averageLoad=False):
-        """ "
+        """
         This is an internal helper function for doing the addLoadToComponents method for
         inherited TACSProblem classes. The function should NOT be called by the user should
         use the addLoadToComponents method for the respective problem class. The function is
@@ -348,7 +349,7 @@ class TACSProblem(BaseUI):
         -----
 
         The units of the entries of the 'force' vector F are not
-        necesarily physical forces and their interpretation depends
+        necessarily physical forces and their interpretation depends
         on the physics problem being solved and the dofs included
         in the model.
 
@@ -440,7 +441,7 @@ class TACSProblem(BaseUI):
         ----------
 
         The units of the entries of the 'force' vector F are not
-        necesarily physical forces and their interpretation depends
+        necessarily physical forces and their interpretation depends
         on the physics problem being solved and the dofs included
         in the model.
 
@@ -521,7 +522,7 @@ class TACSProblem(BaseUI):
                 )
 
     def _addLoadToRHS(self, Frhs, Fapplied):
-        """ "
+        """
         This is an internal helper function for doing the addLoadToRHS method for
         inherited TACSProblem classes. The function should NOT be called by the user should
         use the addLoadToRHS method for the respective problem class.
@@ -877,7 +878,7 @@ class TACSProblem(BaseUI):
                 # Add new inertial force to auxiliary element object
                 auxElems.addElement(elemID, inertiaObj)
 
-    def _addCentrifugalLoad(self, auxElems, omegaVector, rotCenter):
+    def _addCentrifugalLoad(self, auxElems, omegaVector, rotCenter, firstOrder=False):
         """
         This is an internal helper function for doing the addCentrifugalLoad method for
         inherited TACSProblem classes. The function should NOT be called by the user should
@@ -896,6 +897,10 @@ class TACSProblem(BaseUI):
 
         rotCenter : numpy.ndarray
             Location of center of rotation used to define centrifugal load.
+
+        firstOrder : bool, optional
+            Whether to use first order approximation for centrifugal load,
+            which computes the force in the displaced position. By default False
         """
         # Make sure vector is right type
         omegaVector = np.atleast_1d(omegaVector).astype(self.dtype)
@@ -906,7 +911,7 @@ class TACSProblem(BaseUI):
         for elemID, elemObj in enumerate(localElements):
             # Create appropriate centrifugal force object for this element type
             centrifugalObj = elemObj.createElementCentrifugalForce(
-                omegaVector, rotCenter
+                omegaVector, rotCenter, firstOrder=firstOrder
             )
             # Centrifugal force is implemented for element
             if centrifugalObj is not None:
@@ -1064,3 +1069,71 @@ class TACSProblem(BaseUI):
                 self._addTractionToElements(
                     auxElems, elemID, trac, faceIndex, nastranOrdering=True
                 )
+
+    def writeSensFile(self, evalFuncs, tacsAim):
+        """
+        write an ESP/CAPS .sens file from the tacs aim
+        Optional tacs_aim arg for TacsAim wrapper class object in root/tacs/caps2tacs/
+
+        Parameters
+        ----------
+        evalFuncs : list[str]
+            names of TACS functions to be evaluated
+        tacsAim : tacs.caps2tacs.TacsAIM
+            class which handles the sensitivity file writing for ESP/CAPS shape derivatives
+
+        """
+
+        # obtain the functions and sensitivities from TACS assembler
+        tacs_funcs = {}
+        tacs_sens = {}
+        self.evalFunctions(tacs_funcs, evalFuncs=evalFuncs)
+        self.evalFunctionsSens(tacs_sens, evalFuncs=evalFuncs)
+
+        num_funcs = len(evalFuncs)
+        assert tacsAim is not None
+        num_struct_dvs = len(tacsAim.thickness_variables)
+        num_nodes = self.meshLoader.bdfInfo.nnodes
+        node_ids = self.meshLoader.allLocalNodeIDs
+
+        if self.comm.rank == 0:
+            # open the sens file nastran_CAPS.sens and write coordinate derivatives
+            # and any other struct derivatives to it
+            with open(tacsAim.sens_file_path, "w") as hdl:
+                for func_name in evalFuncs:
+                    hdl.write(f"{num_funcs} {num_struct_dvs}\n")
+
+                    # for each function write the values and coordinate derivatives
+                    for func_name in evalFuncs:
+                        # get the tacs key
+                        for tacs_key in tacs_funcs:
+                            if func_name in tacs_key:
+                                break
+
+                        # get the tacs coordinate derivatives
+                        xpts_sens = tacs_sens[tacs_key]["Xpts"]
+
+                        # write the func name, value and nnodes
+                        hdl.write(f"{func_name}\n")
+                        hdl.write(f"{tacs_funcs[tacs_key].real}\n")
+                        hdl.write(f"{num_nodes}\n")
+
+                        # write the coordinate derivatives for the given function
+                        for bdf_ind in range(num_nodes):
+                            tacs_ind = node_ids[bdf_ind]
+                            nastran_node = bdf_ind + 1
+                            hdl.write(
+                                f"{nastran_node} {xpts_sens[3*tacs_ind].real} {xpts_sens[3*tacs_ind+1].real} {xpts_sens[3*tacs_ind+2].real}\n"
+                            )
+
+                        # write any struct derivatives if there are struct derivatives
+                        if num_struct_dvs > 0:
+                            struct_sens = tacs_sens[tacs_key]["struct"]
+                            for idx, thick_var in enumerate(
+                                tacsAim.thickness_variables
+                            ):
+                                # assumes these are sorted in tacs aim wrapper
+                                hdl.write(f"{thick_var.name}\n")
+                                hdl.write("1\n")
+                                hdl.write(f"{struct_sens[idx].real}\n")
+            return

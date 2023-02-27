@@ -1,6 +1,7 @@
 import os
-from tacs import pytacs, functions
+
 from pytacs_analysis_base_test import PyTACSTestCase
+from tacs import pytacs, functions
 
 """
 3 point masses are rigidly connected to one another using a RBE2 element.
@@ -49,11 +50,19 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
 
         fea_assembler = pytacs.pyTACS(bdf_file, comm, options=struct_options)
 
+        # Add mass DVs
+        fea_assembler.assignMassDV("mass1:m", 1, "m")
+        fea_assembler.assignMassDV("mass1:moi", 1, "I11")
+        fea_assembler.assignMassDV("mass2:m", 2, "m")
+        fea_assembler.assignMassDV("mass3:m", 3, "m")
+
         # Set up constitutive objects and elements
         fea_assembler.initialize()
 
         # Create case 1 static problem
-        problem = fea_assembler.createStaticProblem("rigid_body")
+        problem = fea_assembler.createStaticProblem(
+            "rigid_body", options={"printTiming": True}
+        )
 
         problem.addFunction("mass", functions.StructuralMass)
         problem.addFunction("cgx", functions.CenterOfMass, direction=[1.0, 0.0, 0.0])

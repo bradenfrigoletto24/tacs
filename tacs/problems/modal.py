@@ -10,14 +10,15 @@ information for a modal analysis.
 # Imports
 # =============================================================================
 import os
-import numpy as np
 import time
-from .base import TACSProblem
+
+import numpy as np
+
 import tacs.TACS
+from .base import TACSProblem
 
 
 class ModalProblem(TACSProblem):
-
     # Default Option List
     defaultOptions = {
         "outputDir": [str, "./", "Output directory for F5 file writer."],
@@ -31,6 +32,17 @@ class ModalProblem(TACSProblem):
             float,
             1e-12,
             "Relative convergence tolerance for Eigenvalue solver based on l2 norm of residual.",
+        ],
+        "RBEStiffnessScaleFactor": [
+            float,
+            1e3,
+            "Constraint matrix scaling factor used in RBE Lagrange multiplier stiffness matrix.",
+        ],
+        "RBEArtificialStiffness": [
+            float,
+            1e-3,
+            "Artificial constant added to diagonals of RBE Lagrange multiplier stiffness matrix \n"
+            "\t to stabilize preconditioner.",
         ],
         "subSpaceSize": [
             int,
@@ -74,7 +86,7 @@ class ModalProblem(TACSProblem):
         comm,
         outputViewer=None,
         meshLoader=None,
-        options={},
+        options=None,
     ):
         """
         NOTE: This class should not be initialized directly by the user.
@@ -110,8 +122,8 @@ class ModalProblem(TACSProblem):
         # Problem name
         self.name = name
 
-        # Default setup for common problem class objects
-        TACSProblem.__init__(self, assembler, comm, outputViewer, meshLoader)
+        # Default setup for common problem class objects, sets up comm and options
+        TACSProblem.__init__(self, assembler, comm, options, outputViewer, meshLoader)
 
         # Set time eigenvalue parameters
         self.sigma = sigma
@@ -120,18 +132,6 @@ class ModalProblem(TACSProblem):
         # String name used in evalFunctions
         self.valName = "eigsm"
         self._initializeFunctionList()
-
-        # Process the default options which are added to self.options
-        # under the 'defaults' key. Make sure the key are lower case
-        def_keys = self.defaultOptions.keys()
-        self.options["defaults"] = {}
-        for key in def_keys:
-            self.options["defaults"][key.lower()] = self.defaultOptions[key]
-            self.options[key.lower()] = self.defaultOptions[key]
-
-        # Set user-defined options
-        for key in options:
-            TACSProblem.setOption(self, key, options[key])
 
         # Create problem-specific variables
         self._createVariables()
@@ -149,13 +149,16 @@ class ModalProblem(TACSProblem):
 
         self.pc = tacs.TACS.Pc(self.K)
 
+        # Set artificial stiffness factors in rbe class
+        c1 = self.getOption("RBEStiffnessScaleFactor")
+        c2 = self.getOption("RBEArtificialStiffness")
+        tacs.elements.RBE2.setScalingParameters(c1, c2)
+        tacs.elements.RBE3.setScalingParameters(c1, c2)
+
         # Assemble and factor the stiffness/Jacobian matrix. Factor the
         # Jacobian and solve the linear system for the displacements
-        alpha = 1.0
-        beta = 0.0
-        gamma = 0.0
-        self.assembler.assembleJacobian(alpha, beta, gamma, None, self.K)
-        self.pc.factor()  # LU factorization of stiffness matrix
+        self.assembler.assembleMatType(tacs.TACS.STIFFNESS_MATRIX, self.K)
+        self.assembler.assembleMatType(tacs.TACS.MASS_MATRIX, self.M)
 
         subspace = self.getOption("subSpaceSize")
         restarts = self.getOption("nRestarts")
@@ -266,6 +269,9 @@ class ModalProblem(TACSProblem):
         >>> # Result will look like (if ModalProblem has name of 'c1'):
         >>> # {'c1_eigsm.0':12354.10}
         """
+        # Make sure assembler variables are up to date
+        self._updateAssemblerVars()
+
         # Check if user specified which eigvals to output
         # Otherwise, output them all
         if evalFuncs is None:
@@ -314,6 +320,7 @@ class ModalProblem(TACSProblem):
         >>> # Result will look like (if ModalProblem has name of 'c1'):
         >>> # {'c1_eigsm.0':{'struct':[1.234, ..., 7.89], 'Xpts':[3.14, ..., 1.59]}}
         """
+        # Make sure assembler variables are up to date
         self._updateAssemblerVars()
 
         # Check if user specified which eigvals to output
@@ -352,6 +359,13 @@ class ModalProblem(TACSProblem):
 
         self.assembler.setDesignVars(self.x)
         self.assembler.setNodes(self.Xpts)
+        # Make sure previous auxiliary loads are removed
+        self.assembler.setAuxElements(None)
+        # Set artificial stiffness factors in rbe class
+        c1 = self.getOption("RBEStiffnessScaleFactor")
+        c2 = self.getOption("RBEArtificialStiffness")
+        tacs.elements.RBE2.setScalingParameters(c1, c2)
+        tacs.elements.RBE3.setScalingParameters(c1, c2)
 
     def solve(self):
         """
@@ -451,14 +465,14 @@ class ModalProblem(TACSProblem):
             Use this supplied string for the base filename. Typically
             only used from an external solver.
         number : int or None
-            Use the user spplied number to index solution. Again, only
+            Use the user supplied number to index solution. Again, only
             typically used from an external solver
         indices : int or list[int] or None
             Mode index or indices to get state variables for.
             If None, returns a solution for all modes.
             Defaults to None.
         """
-        # Make sure assembler variables are up to date
+        # Make sure assembler variables are up-to-date
         self._updateAssemblerVars()
 
         # Check input
@@ -481,7 +495,6 @@ class ModalProblem(TACSProblem):
 
         # Unless the writeSolution option is off write actual file:
         if self.getOption("writeSolution"):
-
             # If indices is None, output all modes
             if indices is None:
                 indices = np.arange(self.numEigs)

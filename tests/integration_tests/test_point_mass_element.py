@@ -1,7 +1,9 @@
-import numpy as np
 import os
-from tacs import pytacs, TACS, elements, constitutive, functions, problems
+
+import numpy as np
+
 from pytacs_analysis_base_test import PyTACSTestCase
+from tacs import pytacs, TACS, functions
 
 """
 A point mass element free in space. 
@@ -57,6 +59,11 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
         struct_options = {}
 
         fea_assembler = pytacs.pyTACS(bdf_file, comm, options=struct_options)
+
+        # Add global DV
+        fea_assembler.addGlobalDV("point_mass", 20.0)
+        # Assign mass to global dv
+        fea_assembler.assignMassDV("point_mass", 1, "m")
 
         # Set up constitutive objects and elements
         fea_assembler.initialize()

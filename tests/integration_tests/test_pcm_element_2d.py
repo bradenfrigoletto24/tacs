@@ -1,7 +1,7 @@
-import numpy as np
 import os
-from tacs import pytacs, TACS, elements, constitutive, functions, problems
+
 from pytacs_analysis_base_test import PyTACSTestCase
+from tacs import pytacs, elements, constitutive, functions
 
 """
 Test phase change material (PCM) constitutive class and associated heat conduction model.
@@ -65,7 +65,6 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
         def elem_call_back(
             dv_num, comp_id, comp_descript, elem_descripts, special_dvs, **kwargs
         ):
-
             # Setup property and constitutive objects
             prop = constitutive.MaterialProperties(
                 rho=rho, kappa=kappa, specific_heat=cp

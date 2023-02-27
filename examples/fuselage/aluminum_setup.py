@@ -1,4 +1,5 @@
 import numpy as np
+
 from tacs import constitutive, elements
 
 # Material properties
@@ -11,6 +12,7 @@ ys = 324.0e6  # yield stress
 t = 0.005  # m
 tMin = 0.002  # m
 tMax = 0.05  # m
+
 
 # Callback function used to setup TACS element objects and DVs
 def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs):

@@ -1,7 +1,7 @@
-import numpy as np
 import os
-from tacs import pytacs, TACS, elements, constitutive, functions, problems
+
 from pytacs_analysis_base_test import PyTACSTestCase
+from tacs import pytacs, elements, constitutive, functions
 
 """
 Test heat conduction of a problem with non-uniform boundary conditions with initial conditions everywhere else.
@@ -34,7 +34,6 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
     }
 
     def setup_tacs_problems(self, comm):
-
         # Instantiate FEA Assembler
         struct_options = {  # Finer tol needed to pass complex sens test
             "L2Convergence": 1e-16
@@ -54,7 +53,6 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
         def elem_call_back(
             dv_num, comp_id, comp_descript, elem_descripts, special_dvs, **kwargs
         ):
-
             # Setup property and constitutive objects
             prop = constitutive.MaterialProperties(
                 rho=rho, kappa=kappa, specific_heat=cp
@@ -80,7 +78,11 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
 
         # Create transient problem, loads are already applied through BCs
         tp = fea_assembler.createTransientProblem(
-            name="transient", tInit=0.0, tFinal=5.0, numSteps=100
+            name="transient",
+            tInit=0.0,
+            tFinal=5.0,
+            numSteps=100,
+            options={"printLevel": 2},
         )
         # Set the initial conditions
         tp.setInitConditions(vars=150.0)

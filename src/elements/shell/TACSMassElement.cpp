@@ -42,7 +42,8 @@ TACSElement *TACSMassElement::createElementInertialForce(
 }
 
 TACSElement *TACSMassElement::createElementCentrifugalForce(
-    const TacsScalar omegaVec[], const TacsScalar rotCenter[]) {
+    const TacsScalar omegaVec[], const TacsScalar rotCenter[],
+    const bool first_order) {
   return new TACSMassCentrifugalForce(con, omegaVec, rotCenter);
 }
 
@@ -121,6 +122,15 @@ void TACSMassElement::getMatType(ElementMatrixType matType, int elemIndex,
       }
     }
   }
+}
+
+void TACSMassElement::addAdjResProduct(
+    int elemIndex, double time, TacsScalar scale, const TacsScalar psi[],
+    const TacsScalar Xpts[], const TacsScalar vars[], const TacsScalar dvars[],
+    const TacsScalar ddvars[], int dvLen, TacsScalar dfdx[]) {
+  double pt[3] = {0.0, 0.0, 0.0};
+  // Add the product of the derivative of the inertial force
+  con->addInertiaDVSens(elemIndex, scale, pt, Xpts, ddvars, psi, dvLen, dfdx);
 }
 
 int TACSMassElement::evalPointQuantity(

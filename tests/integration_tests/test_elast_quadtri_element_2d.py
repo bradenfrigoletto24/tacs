@@ -1,7 +1,7 @@
 import numpy as np
-from mpi4py import MPI
-from tacs import TACS, elements, constitutive, functions
+
 from static_analysis_base_test import StaticTestCase
+from tacs import TACS, elements, constitutive, functions
 
 """
 Create a uniform plate of quadratic triangles under uniform edge loading
@@ -28,7 +28,6 @@ ksweight = 10.0
 
 
 class ProblemTest(StaticTestCase.StaticTest):
-
     N_PROCS = 2  # this is how many MPI processes to use for this TestCase.
 
     def setup_assembler(self, comm, dtype):
@@ -60,7 +59,6 @@ class ProblemTest(StaticTestCase.StaticTest):
         creator = TACS.Creator(comm, vars_per_node)
 
         if comm.rank == 0:
-
             # Set the nodes
             num_nodes = (2 * nx + 1) * (2 * ny + 1)
             num_elems = 2 * nx * ny

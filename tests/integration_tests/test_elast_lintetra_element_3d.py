@@ -1,7 +1,9 @@
-import numpy as np
-from tacs import TACS, elements, constitutive, functions
-from static_analysis_base_test import StaticTestCase
 import os
+
+import numpy as np
+
+from static_analysis_base_test import StaticTestCase
+from tacs import TACS, elements, constitutive, functions
 
 """
 Load in a bdf file with tetrahedral elements, apply a load,
@@ -20,7 +22,6 @@ ksweight = 10.0
 
 
 class ProblemTest(StaticTestCase.StaticTest):
-
     N_PROCS = 2  # this is how many MPI processes to use for this TestCase.
 
     def setup_assembler(self, comm, dtype):

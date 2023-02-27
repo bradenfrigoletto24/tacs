@@ -1,7 +1,9 @@
 import os
+
 import numpy as np
-from tacs import pytacs, constitutive, elements, functions
+
 from pytacs_analysis_base_test import PyTACSTestCase
+from tacs import pytacs, constitutive, elements, functions
 
 """
 6 noded beam model 1 meter long in x direction with a point mass attached at the end.
@@ -83,10 +85,7 @@ class ProblemTest(PyTACSTestCase.PyTACSTest):
             elem = elements.Beam2(transform, con)
             return elem
 
-        # Instantiate FEA Assembler
-        struct_options = {}
-
-        fea_assembler = pytacs.pyTACS(bdf_file, comm, options=struct_options)
+        fea_assembler.assignMassDV("tip_mass", 6)
 
         # Set up constitutive objects and elements
         fea_assembler.initialize(elem_call_back)
