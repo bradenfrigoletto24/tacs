@@ -107,6 +107,12 @@ class TACSShellRefAxisTransform : public TACSShellTransform {
     vec3Scale(invNorm, axis);
   }
 
+  void getRefAxis(TacsScalar _axis[]) {
+    _axis[0] = axis[0];
+    _axis[1] = axis[1];
+    _axis[2] = axis[2];
+  }
+
   void computeTransform(const TacsScalar Xxi[], const TacsScalar n0[],
                         TacsScalar T[]) {
     TacsScalar n[3];
@@ -120,6 +126,14 @@ class TACSShellRefAxisTransform : public TACSShellTransform {
 
     // Compute the dot product with
     TacsScalar an = vec3Dot(axis, n);
+
+    // Check if ref axis is parallel with normal
+    if (abs(TacsRealPart(an)) > 1.0 - SMALL_NUM) {
+      fprintf(stderr,
+              "TACSShellRefAxisTransform: Error, user-provided reference axis "
+              "is perpendicular to shell. "
+              "Element behavior may be ill-conditioned.\n");
+    }
 
     // Take the component of the reference axis perpendicular
     // to the surface
@@ -200,6 +214,8 @@ class TACSShellRefAxisTransform : public TACSShellTransform {
 
  private:
   TacsScalar axis[3];
+  /* Tolerance for colinearity test in between shell normal and ref axis */
+  const double SMALL_NUM = 1e-8;
 };
 
 #endif  // TACS_SHELL_ELEMENT_TRANSFORM_H

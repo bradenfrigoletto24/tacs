@@ -5,10 +5,11 @@ import os, numpy as np
 from .proc_decorator import root_proc, root_broadcast
 from .materials import Material
 from .constraints import Constraint
-from .property import ShellProperty
+from .property import ShellProperty, Property
 from .loads import Load
 from .variables import ShapeVariable, ThicknessVariable
 from .egads_aim import EgadsAim
+from .aflr_aim import AflrAim
 
 
 class TacsAimMetadata:
@@ -38,7 +39,9 @@ class TacsAim:
         self._properties = []
         self._constraints = []
         self._design_variables = []
-        self._egads_aim = None
+        self._mesh_aim = None
+
+        self._dict_options = None
 
         # build flags
         self._setup = False
@@ -85,14 +88,16 @@ class TacsAim:
                 self._properties.append(obj.shell_property)
         elif isinstance(obj, ShapeVariable):
             self._design_variables.append(obj)
-        elif isinstance(obj, ShellProperty):
+        elif isinstance(obj, Property):
             self._properties.append(obj)
         elif isinstance(obj, Constraint):
             self._constraints.append(obj)
         elif isinstance(obj, Load):
             self._loads.append(obj)
         elif isinstance(obj, EgadsAim):
-            self._egads_aim = obj
+            self._mesh_aim = obj
+        elif isinstance(obj, AflrAim):
+            self._mesh_aim = obj
         else:
             raise AssertionError(
                 "Object could not be registered to TacsAim as it is not an appropriate type."
@@ -108,7 +113,7 @@ class TacsAim:
         assert len(self._materials) > 0
         assert len(self._properties) > 0
         assert len(self._constraints) > 0
-        assert self._egads_aim is not None
+        assert self._mesh_aim is not None
 
         # this part runs on serial
         if self.comm is None or self.comm.rank == 0:
@@ -162,7 +167,7 @@ class TacsAim:
                 self._first_setup = False
 
             # link the egads aim to the tacs aim
-            self.aim.input["Mesh"].link(self._egads_aim.aim.output["Surface_Mesh"])
+            self.aim.input["Mesh"].link(self._mesh_aim.aim.output["Surface_Mesh"])
 
             # add the design variables to the DesignVariable and DesignVariableRelation properties
             if len(self.thickness_variables) > 0:
@@ -175,6 +180,9 @@ class TacsAim:
                 self.aim.input.Design_Variable = {
                     dv.name: dv.DV_dictionary for dv in self._design_variables
                 }
+
+            if self._dict_options is not None:
+                self._set_dict_options()
 
         # end of serial or root proc section
 
@@ -190,6 +198,10 @@ class TacsAim:
     @root_broadcast
     def get_config_parameter(self, param_name: str):
         return self.geometry.cfgpmtr[param_name].value
+
+    @root_broadcast
+    def get_output_parameter(self, out_name: str):
+        return self.geometry.outpmtr[out_name].value
 
     @property
     def geometry(self):
@@ -294,6 +306,31 @@ class TacsAim:
             }
 
         return
+
+    def save_dict_options(self, aimOptions: dict = None):
+        """
+        Optional method to set tacsAIM settings using dictionaries. Settings specified
+        through dictionaries take precedence over other methods. The dictionary should
+        take the form of, e.g.:
+
+        aimOptions['tacsAIM']['myOption'] = myValue
+        """
+
+        self._dict_options = aimOptions
+
+        return self
+
+    @root_proc
+    def _set_dict_options(self):
+        """
+        Set any options that were specified through dictionaries.
+        """
+        aimOptions = self._dict_options
+
+        for ind, option in enumerate(aimOptions["tacsAim"]):
+            self.aim.input[option].value = aimOptions["tacsAim"][option]
+
+        return self
 
     @root_proc
     def pre_analysis(self):
