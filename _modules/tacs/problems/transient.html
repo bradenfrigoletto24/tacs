@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="python">
@@ -6,15 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tacs.problems.transient &#8212; TACS  documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/sphinxdoc.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b76e3c8a" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinxdoc.css?v=0a676766" />
     <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/jquery.js"></script>
-    <script src="../../../_static/underscore.js"></script>
-    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="../../../_static/doctools.js"></script>
-    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=a888008e"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
@@ -405,7 +401,7 @@
 <span class="sd">            to determine this.</span>
 
 <span class="sd">        F : Numpy 1d or 2d array length (varsPerNodes) or (numCompIDs, varsPerNodes)</span>
-<span class="sd">            Vector(s) of &#39;force&#39; to apply to each components.  If only one force vector is provided,</span>
+<span class="sd">            Vector(s) of &#39;force&#39; to apply to each component.  If only one force vector is provided,</span>
 <span class="sd">            force will be copied uniformly across all components.</span>
 
 <span class="sd">        timeStage : int or None</span>
@@ -425,7 +421,7 @@
 <span class="sd">        on the physics problem being solved and the dofs included</span>
 <span class="sd">        in the model.</span>
 
-<span class="sd">        A couple of examples of force vector components for common problem are listed below:</span>
+<span class="sd">        A couple of examples of force vector components for common problems are listed below:</span>
 
 <span class="sd">            In Heat Conduction with varsPerNode = 1</span>
 <span class="sd">                F = [Qdot] # heat rate</span>
@@ -487,7 +483,7 @@
 <span class="sd">        on the physics problem being solved and the dofs included</span>
 <span class="sd">        in the model.</span>
 
-<span class="sd">        A couple of examples of force vector components for common problem are listed below:</span>
+<span class="sd">        A couple of examples of force vector components for common problems are listed below:</span>
 
 <span class="sd">            In Heat Conduction with varsPerNode = 1</span>
 <span class="sd">                F = [Qdot] # heat rate</span>
@@ -532,7 +528,7 @@
 <span class="sd">        timeStep : int</span>
 <span class="sd">            Time step index to apply load to.</span>
 
-<span class="sd">        Fapplied : numpy.ndarray or TACS.Vec</span>
+<span class="sd">        Fapplied : numpy.ndarray or tacs.TACS.Vec</span>
 <span class="sd">            Distributed array containing loads to applied to RHS of the problem.</span>
 
 <span class="sd">        timeStage : int or None</span>
@@ -572,7 +568,7 @@
 <span class="sd">            to determine this.</span>
 
 <span class="sd">        tractions : numpy.ndarray length 1 or compIDs</span>
-<span class="sd">            Array of traction vectors for each components</span>
+<span class="sd">            Array of traction vectors for each component</span>
 
 <span class="sd">        timeStage : int or None</span>
 <span class="sd">            Time stage index to apply load to. Default is None, which is applicable only for</span>
@@ -671,7 +667,7 @@
 <span class="sd">            to determine this.</span>
 
 <span class="sd">        pressures : Numpy array length 1 or compIDs</span>
-<span class="sd">            Array of pressure values for each components</span>
+<span class="sd">            Array of pressure values for each component</span>
 
 <span class="sd">        timeStage : int or None</span>
 <span class="sd">            Time stage index to apply load to. Default is None, which is applicable only for</span>
@@ -860,11 +856,11 @@
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        vars : float or numpy.ndarray or TACS.Vec</span>
+<span class="sd">        vars : float or numpy.ndarray or tacs.TACS.Vec</span>
 <span class="sd">            Initial conditions of the state variables</span>
-<span class="sd">        dvars : float or numpy.ndarray or TACS.Vec</span>
+<span class="sd">        dvars : float or numpy.ndarray or tacs.TACS.Vec</span>
 <span class="sd">            Initial conditions of the first time-derivative of the state variables</span>
-<span class="sd">        ddvars : float or numpy.ndarray or TACS.Vec</span>
+<span class="sd">        ddvars : float or numpy.ndarray or tacs.TACS.Vec</span>
 <span class="sd">            Initial conditions of the second time-derivative of the state variables</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
@@ -1003,7 +999,7 @@
 <span class="sd">        timeStage : int or None</span>
 <span class="sd">            Time stage index to iterate. If not None, solver must be multistage</span>
 
-<span class="sd">        Fext : TACS.Vec or numpy.ndarray or None</span>
+<span class="sd">        Fext : tacs.TACS.Vec or numpy.ndarray or None</span>
 <span class="sd">            If Fext is not None, add this force vector to the loads applied at</span>
 <span class="sd">            this time instance. Fext must be sized such that the flattened array</span>
 <span class="sd">            is (numOwnedNodes*numVarsPerNode) in length. Useful for applying</span>
@@ -1072,7 +1068,7 @@
 <span class="sd">            The user-supplied name for the function. This will</span>
 <span class="sd">            typically be a string that is meaningful to the user</span>
 
-<span class="sd">        funcHandle : TACS.Function</span>
+<span class="sd">        funcHandle : tacs.TACS.Function</span>
 <span class="sd">            The function handle to use for creation. This must come</span>
 <span class="sd">            from the functions module in tacs.</span>
 
@@ -1096,7 +1092,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This is the main routine for returning useful information from</span>
 <span class="sd">        pytacs. The functions corresponding to the strings in</span>
-<span class="sd">        EVAL_FUNCS are evaluated and updated into the provided</span>
+<span class="sd">        evalFuncs are evaluated and updated into the provided</span>
 <span class="sd">        dictionary.</span>
 
 <span class="sd">        Parameters</span>
@@ -1185,7 +1181,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This is the main routine for returning useful (sensitivity)</span>
 <span class="sd">        information from problem. The derivatives of the functions</span>
-<span class="sd">        corresponding to the strings in EVAL_FUNCS are evaluated and</span>
+<span class="sd">        corresponding to the strings in evalFuncs are evaluated and</span>
 <span class="sd">        updated into the provided dictionary. The derivitives with</span>
 <span class="sd">        respect to all design variables and node locations are computed.</span>
 
@@ -1286,13 +1282,13 @@
 <span class="sd">        timeStage : int or None</span>
 <span class="sd">            Time stage index to get state variables for.</span>
 
-<span class="sd">        states : TACS.Vec or numpy.ndarray or None</span>
+<span class="sd">        states : tacs.TACS.Vec or numpy.ndarray or None</span>
 <span class="sd">            If states is not None, place the state variables into this array (optional).</span>
 
-<span class="sd">        dstates : TACS.Vec or numpy.ndarray or None</span>
+<span class="sd">        dstates : tacs.TACS.Vec or numpy.ndarray or None</span>
 <span class="sd">            If dstates is not None, place the time derivative of the state variables into this array (optional).</span>
 
-<span class="sd">        ddstates : TACS.Vec or numpy.ndarray or None</span>
+<span class="sd">        ddstates : tacs.TACS.Vec or numpy.ndarray or None</span>
 <span class="sd">            If ddstates is not None, place the second time derivative of the state variables into this array (optional).</span>
 
 <span class="sd">        Returns</span>
@@ -1300,13 +1296,13 @@
 <span class="sd">        time: float</span>
 <span class="sd">            The time at specified time instance</span>
 
-<span class="sd">        states : TACS.Vec or numpy.ndarray</span>
+<span class="sd">        states : tacs.TACS.Vec or numpy.ndarray</span>
 <span class="sd">            The state variables.</span>
 
-<span class="sd">        dstates : TACS.Vec or numpy.ndarray or None</span>
+<span class="sd">        dstates : tacs.TACS.Vec or numpy.ndarray or None</span>
 <span class="sd">            The time derivative of the state variables.</span>
 
-<span class="sd">        ddstates : TACS.Vec or numpy.ndarray or None</span>
+<span class="sd">        ddstates : tacs.TACS.Vec or numpy.ndarray or None</span>
 <span class="sd">            The second time derivative of the state variables.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
