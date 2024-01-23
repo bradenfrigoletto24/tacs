@@ -2,7 +2,11 @@ import numpy as np
 
 import openmdao.api as om
 
-from mphys import MaskedConverter, UnmaskedConverter, MaskedVariableDescription
+from mphys.mask_converter import (
+    MaskedConverter,
+    UnmaskedConverter,
+    MaskedVariableDescription,
+)
 
 from .solver import TacsSolver
 
@@ -15,12 +19,14 @@ class TacsCouplingGroup(om.Group):
         self.options.declare("coupled", default=False)
         self.options.declare("scenario_name", default=None)
         self.options.declare("problem_setup", default=None)
+        self.options.declare("res_ref", default=None)
 
     def setup(self):
         self.fea_assembler = self.options["fea_assembler"]
         self.check_partials = self.options["check_partials"]
         self.coupled = self.options["coupled"]
         self.conduction = self.options["conduction"]
+        self.res_ref = self.options["res_ref"]
 
         # Promote state variables/rhs with physics-specific tag that MPhys expects
         promotes_inputs = [
@@ -78,6 +84,7 @@ class TacsCouplingGroup(om.Group):
                 check_partials=self.check_partials,
                 coupled=self.coupled,
                 conduction=self.conduction,
+                res_ref=self.res_ref,
             ),
             promotes_inputs=promotes_inputs,
         )
