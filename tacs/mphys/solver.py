@@ -17,6 +17,7 @@ class TacsSolver(om.ImplicitComponent):
         self.options.declare("conduction", default=False)
         self.options.declare("check_partials")
         self.options.declare("coupled", default=False)
+        self.options.declare("res_ref", default=None)
 
         self.fea_assembler = None
 
@@ -31,6 +32,7 @@ class TacsSolver(om.ImplicitComponent):
         self.fea_assembler = self.options["fea_assembler"]
         self.conduction = self.options["conduction"]
         self.coupled = self.options["coupled"]
+        self.res_ref = self.options["res_ref"]
 
         if self.conduction:
             self.states_name = "T_conduct"
@@ -78,6 +80,7 @@ class TacsSolver(om.ImplicitComponent):
             val=np.zeros(state_size),
             desc="structural state vector",
             tags=["mphys_coupling"],
+            res_ref=self.res_ref,
         )
 
     def _need_update(self, inputs):
@@ -128,14 +131,22 @@ class TacsSolver(om.ImplicitComponent):
         self.sp.getResidual(res=residuals[self.states_name], Fext=Fext)
 
     def solve_nonlinear(self, inputs, outputs):
-        self._update_internal(inputs)
+        self._update_internal(
+            inputs
+        )  # TODO: We should also pass in outputs here in-case OpenMDAO is trying to pass in an intial state?
 
         if self.coupled:
             Fext = inputs[self.rhs_name]
         else:
             Fext = None
 
-        self.sp.solve(Fext=Fext)
+        hasConverged = self.sp.solve(Fext=Fext)
+        if not hasConverged:
+            self.sp.writeSolution(baseName=f"{self.sp.name}-failed")
+            # TODO: In future we could add something here to distinguish between fatal failures and those that could be recovered from
+            self.sp.zeroVariables()
+            raise om.AnalysisError("TACS solver did not converge")
+
         self.sp.getVariables(states=outputs[self.states_name])
 
     def solve_linear(self, d_outputs, d_residuals, mode):

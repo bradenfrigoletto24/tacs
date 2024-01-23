@@ -39,7 +39,7 @@ import tacs.elements
 import tacs.functions
 import tacs.problems
 from tacs.pymeshloader import pyMeshLoader
-from .utilities import BaseUI
+from tacs.utilities import BaseUI
 
 warnings.simplefilter("default")
 
@@ -151,15 +151,20 @@ class pyTACS(BaseUI):
             False,
             "Flag for printing out timing information for class procedures.",
         ],
+        "linearityTol": [
+            float,
+            1e-14,
+            "When created, pyTACS will check if the model is linear or nonlinear by checking whether (res(2*u) - res(0)) - 2 * (res(u) - res(0)) == 0 this tolerance controls how close to zero the residual must be to be considered linear.",
+        ],
     }
 
-    def __init__(self, fileName, comm=None, dvNum=0, scaleList=None, options=None):
+    def __init__(self, bdf, comm=None, dvNum=0, scaleList=None, options=None):
         """
 
         Parameters
         ----------
-        fileName : str
-            The filename of the BDF file to load.
+        bdf : str or pyNastran.bdf.bdf.BDF
+            The BDF file or a pyNastran BDF object to load.
 
         comm : mpi4py.MPI.Intracomm
             The comm object on which to create the pyTACS object.
@@ -189,10 +194,10 @@ class pyTACS(BaseUI):
         # Create and load mesh loader object.
         debugFlag = self.getOption("printDebug")
         self.meshLoader = pyMeshLoader(self.comm, debugFlag)
-        self.meshLoader.scanBdfFile(fileName)
-        self.bdfName = fileName
+        self.meshLoader.scanBdfFile(bdf)
         # Save pynastran bdf object
         self.bdfInfo = self.meshLoader.getBDFInfo()
+        self.bdfName = self.bdfInfo.bdf_filename
 
         meshLoadTime = time.time()
 
@@ -232,6 +237,9 @@ class pyTACS(BaseUI):
         # TACS assembler object
         self.assembler = None
 
+        # Nonlinear flag
+        self._isNonlinear = None
+
         initFinishTime = time.time()
         if self.getOption("printTiming"):
             self._pp("+--------------------------------------------------+")
@@ -259,6 +267,11 @@ class pyTACS(BaseUI):
                 % ("TACS Total Initialization Time", initFinishTime - startTime)
             )
             self._pp("+--------------------------------------------------+")
+
+    @property
+    def isNonlinear(self):
+        """The public interface for the isNonlinear attribute. Implemented as a property so that it is read-only."""
+        return self._isNonlinear
 
     @preinitialize_method
     def addGlobalDV(self, descript, value, lower=None, upper=None, scale=1.0):
@@ -743,7 +756,7 @@ class pyTACS(BaseUI):
 
         Parameters
         ----------
-        elemCallBack : callable
+        elemCallBack : collections.abc.Callable or None
 
            The calling sequence for elemCallBack **must** be as
            follows::
@@ -798,6 +811,56 @@ class pyTACS(BaseUI):
         self.xub = self.assembler.createDesignVec()
         self.xlb = self.assembler.createDesignVec()
         self.assembler.getDesignVarRange(self.xlb, self.xub)
+
+        self._isNonlinear = self._checkNonlinearity()
+
+    @postinitialize_method
+    def _checkNonlinearity(self) -> bool:
+        """Check if the finite element model is nonlinear
+
+        This check works by checking whether the residual is nonlinear w.r.t the states using 3 residual evaluations.
+
+        Returns
+        -------
+        bool
+            True if the problem is nonlinear, False otherwise.
+        """
+        res0 = self.assembler.createVec()
+        res1 = self.assembler.createVec()
+        res2 = self.assembler.createVec()
+        state = self.assembler.createVec()
+
+        # Evaluate r(0)
+        state.zeroEntries()
+        self.assembler.setVariables(state, state, state)
+        self.assembler.assembleRes(res0)
+
+        # Evaluate r(u) - r(0)
+        state.initRand()
+        state.setRand()
+        self.setBCsInVec(state)
+        self.assembler.setVariables(state, state, state)
+        self.assembler.assembleRes(res1)
+        res1.axpy(-1.0, res0)
+
+        # Evaluate r(2u) -  r(0)
+        state.scale(2.0)
+        self.setBCsInVec(state)
+        self.assembler.setVariables(state, state, state)
+        self.assembler.assembleRes(res2)
+        res2.axpy(-1.0, res0)
+
+        # Reset the state variables
+        state.zeroEntries()
+        self.assembler.setVariables(state, state, state)
+
+        # Check if (res2-res0) - 2 * (res1 - res0) is zero (or very close to it)
+        resNorm = np.real(res1.norm())
+        res2.axpy(-2.0, res1)
+        if resNorm == 0.0 or (np.real(res2.norm()) / resNorm) <= self.getOption("linearityTol"):
+            return False # not nonlinear case
+        else:
+            return True # nonlinear case
 
     def _elemCallBackFromBDF(self):
         """
@@ -992,17 +1055,21 @@ class pyTACS(BaseUI):
                 plyThicknesses = np.array(plyThicknesses, dtype=self.dtype)
                 plyAngles = np.array(plyAngles, dtype=self.dtype)
 
+                # Get the total laminate thickness
+                lamThickness = propInfo.Thickness()
+                # Get the offset distance from the ref plane to the midplane
+                tOffset = -(propInfo.z0 / lamThickness + 0.5)
+
                 if propInfo.lam is None or propInfo.lam in ["SYM", "MEM"]:
                     # Discrete laminate class (not for optimization)
                     con = tacs.constitutive.CompositeShellConstitutive(
-                        plyMats, plyThicknesses, plyAngles
+                        plyMats, plyThicknesses, plyAngles, tOffset=tOffset
                     )
 
                 elif propInfo.lam == "SMEAR":
-                    lamThickness = sum(plyThicknesses)
                     plyFractions = plyThicknesses / lamThickness
                     con = tacs.constitutive.SmearedCompositeShellConstitutive(
-                        plyMats, lamThickness, plyAngles, plyFractions
+                        plyMats, lamThickness, plyAngles, plyFractions, t_offset=tOffset
                     )
 
                 # Need to add functionality to consider only membrane in TACS for type = MEM
@@ -1042,7 +1109,8 @@ class pyTACS(BaseUI):
                 area = propInfo.A
                 I1 = propInfo.i1
                 I2 = propInfo.i2
-                I12 = propInfo.i12
+                # Nastran uses negative convention for POI's
+                I12 = -propInfo.i12
                 J = propInfo.j
                 k1 = propInfo.k1
                 k2 = propInfo.k2
@@ -1373,6 +1441,30 @@ class pyTACS(BaseUI):
             array[:] = vec.getArray()
 
     @postinitialize_method
+    def setBCsInVec(self, vec):
+        """
+        Sets dirichlet boundary condition values in the input vector.
+
+        Parameters
+        ----------
+        vec : numpy.ndarray or tacs.TACS.Vec
+            Vector to set boundary conditions in.
+        """
+        # Check if input is a BVec or numpy array
+        if isinstance(vec, tacs.TACS.Vec):
+            self.assembler.setBCs(vec)
+        elif isinstance(vec, np.ndarray):
+            array = vec
+            # Create temporary BVec
+            vec = self.assembler.createVec()
+            # Copy array values to BVec
+            vec.getArray()[:] = array
+            # Apply BCs
+            self.assembler.setBCs(vec)
+            # Copy values back to array
+            array[:] = vec.getArray()
+
+    @postinitialize_method
     def createStaticProblem(self, name, options=None):
         """
         Create a new staticProblem for modeling a static load cases.
@@ -1393,7 +1485,13 @@ class pyTACS(BaseUI):
             StaticProblem object used for modeling and solving static cases.
         """
         problem = tacs.problems.static.StaticProblem(
-            name, self.assembler, self.comm, self.outputViewer, self.meshLoader, options
+            name,
+            self.assembler,
+            self.comm,
+            self.outputViewer,
+            self.meshLoader,
+            self.isNonlinear,
+            options,
         )
         # Set with original design vars and coordinates, in case they have changed
         problem.setDesignVars(self.x0)
@@ -1435,6 +1533,7 @@ class pyTACS(BaseUI):
             self.comm,
             self.outputViewer,
             self.meshLoader,
+            self.isNonlinear,
             options,
         )
         # Set with original design vars and coordinates, in case they have changed
@@ -1475,6 +1574,7 @@ class pyTACS(BaseUI):
             self.comm,
             self.outputViewer,
             self.meshLoader,
+            self.isNonlinear,
             options,
         )
         # Set with original design vars and coordinates, in case they have changed
@@ -1515,6 +1615,7 @@ class pyTACS(BaseUI):
             self.comm,
             self.outputViewer,
             self.meshLoader,
+            self.isNonlinear,
             options,
         )
         # Set with original design vars and coordinates, in case they have changed
