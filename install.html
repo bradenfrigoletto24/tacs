@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Install &#8212; TACS  documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b76e3c8a" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css?v=0a676766" />
     <link rel="stylesheet" href="_static/custom.css" type="text/css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=a888008e"></script>
@@ -58,9 +58,9 @@ Windows users are recommended to try the following alternatives for accessing TA
 <p>For users, TACS can be easily installed through <a class="reference external" href="https://www.anaconda.com/">Anaconda</a>.
 <a class="reference external" href="https://anaconda.org/smdogroup/tacs">Conda packages</a> are available for MacOS and Linux platforms.
 To get started, run the following in a conda terminal:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">TACS</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.8</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">TACS</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.8</span> <span class="n">mamba</span>
 <span class="n">conda</span> <span class="n">activate</span> <span class="n">TACS</span>
-<span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="o">-</span><span class="n">c</span> <span class="n">smdogroup</span> <span class="n">tacs</span>
+<span class="n">mamba</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="o">-</span><span class="n">c</span> <span class="n">smdogroup</span> <span class="n">tacs</span>
 </pre></div>
 </div>
 <p>This will create an environment named &quot;TACS&quot; and install the <cite>tacs</cite> package and all
